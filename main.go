@@ -4,7 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"strconv"
+	"time"
 )
+
+type clientInfo struct {
+	nick      string
+	logonTime time.Time
+}
 
 type message struct {
 	c       net.Conn
@@ -33,18 +40,21 @@ func main() {
 }
 
 func dispatcher(connections <-chan net.Conn) {
-	clients := make([]net.Conn, 0, 10)
+	clients := make(map[net.Conn]clientInfo)
 	msgPipe := make(chan message, 5)
+	i := 1
 	for {
 		select {
 		case conn := <-connections:
-			clients = append(clients, conn)
+			clients[conn] = clientInfo{nick: "client" + strconv.Itoa(i), logonTime: time.Now()}
+			i++
 			go handleConnection(conn, msgPipe)
 		case msg := <-msgPipe:
 			fmt.Println(msg)
-			for _, c := range clients {
+			info := clients[msg.c]
+			for c := range clients {
 				if c != msg.c {
-					c.Write([]byte(msg.payload + "\n"))
+					c.Write([]byte(info.nick + "> " + msg.payload + "\n"))
 				}
 			}
 		}
